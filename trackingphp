@@ -1,0 +1,101 @@
+<?php
+session_start();
+require 'db.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit;
+}
+
+$ride_id = isset($_GET['ride_id']) ? $_GET['ride_id'] : null;
+$delivery_id = isset($_GET['delivery_id']) ? $_GET['delivery_id'] : null;
+
+if ($ride_id) {
+    $stmt = $pdo->prepare("SELECT * FROM rides WHERE id = ? AND user_id = ?");
+    $stmt->execute([$ride_id, $_SESSION['user_id']]);
+    $ride = $stmt->fetch();
+    $tracking = $pdo->prepare("SELECT * FROM tracking WHERE ride_id = ? ORDER BY updated_at DESC LIMIT 1");
+    $tracking->execute([$ride_id]);
+    $location = $tracking->fetch();
+} elseif ($delivery_id) {
+    $stmt = $pdo->prepare("SELECT * FROM deliveries WHERE id = ? AND user_id = ?");
+    $stmt->execute([$delivery_id, $_SESSION['user_id']]);
+    $ride = $stmt->fetch();
+    $tracking = $pdo->prepare("SELECT * FROM tracking WHERE delivery_id = ? ORDER BY updated_at DESC LIMIT 1");
+    $tracking->execute([$delivery_id]);
+    $location = $tracking->fetch();
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracking - Careem Clone</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .tracking-container {
+            max-width: 600px;
+            margin: 50px auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .tracking-container h2 {
+            color: #00cc00;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 10px;
+        }
+        @media (max-width: 480px) {
+            .tracking-container {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="tracking-container">
+        <h2>Track Your <?php echo $ride_id ? 'Ride' : 'Delivery'; ?></h2>
+        <p>Status: <?php echo $ride['status']; ?></p>
+        <?php if ($ride_id): ?>
+            <p>Pickup: <?php echo $ride['pickup_location']; ?></p>
+            <p>Dropoff: <?php echo $ride['dropoff_location']; ?></p>
+            <p>Fare: $<?php echo $ride['fare']; ?></p>
+        <?php else: ?>
+            <p>Pickup: <?php echo $ride['pickup_location']; ?></p>
+            <p>Dropoff: <?php echo $ride['dropoff_location']; ?></p>
+            <p>Package: <?php echo $ride['package_details']; ?></p>
+            <p>Fare: $<?php echo $ride['fare']; ?></p>
+        <?php endif; ?>
+        <div id="map"></div>
+    </div>
+    <script>
+        // Simulated tracking (replace with real GPS data in production)
+        let map, marker;
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: <?php echo $location['latitude'] ?? 37.7749; ?>, lng: <?php echo $location['longitude'] ?? -122.4194; ?> },
+                zoom: 15,
+            });
+            marker = new google.maps.Marker({
+                position: { lat: <?php echo $location['latitude'] ?? 37.7749; ?>, lng: <?php echo $location['longitude'] ?? -122.4194; ?> },
+                map: map,
+            });
+        }
+        function redirectTo(page) {
+            window.location.href = page;
+        }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=API_KEY&callback=initMap" async defer></script>
+</body>
+</html>
